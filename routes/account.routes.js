@@ -7,6 +7,7 @@ const router = express.Router();
 
 // login route
 router.post("/login", accountController.loginAccount);
+router.put("/:id", accountController.updateAccountInfo);
 
 // signup route
 router.post("/signup", accountController.signupAccount);

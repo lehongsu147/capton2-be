@@ -50,6 +50,24 @@ const accountController = {
       res.status(400).json({ error: 'Hệ thống lỗi'});
     }
   },
+  // login
+  updateAccountInfo: async (req, res) => {
+    const { id } = req.params;
+    const updateData = req.body;
+    try {
+      const user = await accountModel.updateAccountInfoDb(id, updateData);
+      if (user) {
+        return res.status(200).json({
+          status: 200,
+          user
+        });
+      } else {
+          return res.status(404).json({ message: "User not found" });
+      }
+    } catch (error) {
+      res.status(400).json({ error: 'Hệ thống lỗi'});
+    }
+  },
 };
 
 module.exports = accountController;
