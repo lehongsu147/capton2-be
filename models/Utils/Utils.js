@@ -53,7 +53,6 @@ const getTime = (inputTime) => {
     return '0'
 }
 
-
 module.exports = {
     getTime,
     getDate,

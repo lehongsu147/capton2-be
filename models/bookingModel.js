@@ -1,12 +1,16 @@
 const client = require('../db');
 const moment = require('moment');
-const { getTime }  = require('./Utils/Utils');
+const { getTime } = require('./Utils/Utils');
 
 const getBookingDetail = async (id) => {
     try {
         const res = await client.query(
-        `SELECT
+            `SELECT
             b.id AS id,
+            b.rate,
+            b.note,
+            b.pgt_id ,
+            b.comment,
             u.user_name AS pgt_name,
             b.user_id as user_id,
             u2.user_name AS user_name,
@@ -18,7 +22,7 @@ const getBookingDetail = async (id) => {
         FROM
             booking b
         JOIN
-            "user" u ON b.kol_id = u.id
+            "user" u ON b.pgt_id = u.id
         JOIN
             "user" u2 ON b.user_id = u2.id
         WHERE
@@ -44,6 +48,7 @@ const getListBookingOfUserFromDb = async (id) => {
             `SELECT
             b.id AS id,
             u.user_name AS pgt_name,
+            b.pgt_id,
             b.date,
             b.price,
             b.status AS status,
@@ -52,34 +57,12 @@ const getListBookingOfUserFromDb = async (id) => {
         FROM
             booking b
         JOIN
-            "user" u ON b.kol_id = u.id
+            "user" u ON b.pgt_id = u.id
         WHERE
             b.user_id = $1
         ORDER BY b.date DESC`,
             [id]
         );
-        // const res = await client.query(
-        //     `SELECT
-        //     b.id AS id,
-        //     u.user_name AS pgt_name,
-        //     c.image AS category_link,
-        //     b.category_id,
-        //     b.date,
-        //     b.price,
-        //     b.status AS status,
-        //     b.time_from,
-        //     b.time_to
-        // FROM
-        //     booking b
-        // JOIN
-        //     "user" u ON b.kol_id = u.id
-        // JOIN
-        //     category c ON b.category_id = c.id
-        // WHERE
-        //     b.user_id = $1
-        // ORDER BY b.created_at ASC`,
-        //     [id]
-        // );
         if (res.rows) {
             return res.rows;
         }
@@ -93,14 +76,14 @@ const getListBookingOfUserFromDb = async (id) => {
     }
 }
 
-const getRequestBookingOfPGTFromDb = async (id,type) => {
+const getRequestBookingOfPGTFromDb = async (id, type) => {
     try {
         // c.image AS category_link,
         // b.category_id,
-            // JOIN
-            //  category c ON b.category_id = c.id
-            const res = await client.query(
-                `SELECT
+        // JOIN
+        //  category c ON b.category_id = c.id
+        const res = await client.query(
+            `SELECT
                 b.id AS id,
                 u.user_name AS pgt_name,
                 b.user_id as user_id,
@@ -114,15 +97,15 @@ const getRequestBookingOfPGTFromDb = async (id,type) => {
             FROM
                 booking b
             JOIN
-                "user" u ON b.kol_id = u.id
+                "user" u ON b.pgt_id = u.id
             JOIN
                 "user" u2 ON b.user_id = u2.id
             WHERE
-                b.kol_id = $1
+                b.pgt_id = $1
                 AND b.status != 4
             ORDER BY b.created_at DESC`,
-                [id]
-            );
+            [id]
+        );
         if (res.rows) {
             return res.rows;
         }
@@ -136,11 +119,64 @@ const getRequestBookingOfPGTFromDb = async (id,type) => {
     }
 }
 
+const getListBookingFromDb = async (Keyword, DateCreate, DateBooking) => {
+    try {
+        let whereClause = '';
+        let values = [];
 
-const getListBookingFromDb = async (id) => {
+        if (Keyword) {
+            whereClause += ` AND (u.user_name ILIKE $1 OR u2.user_name ILIKE $1)`;
+            values.push(`%${Keyword}%`);
+        }
+
+        if (DateCreate) {
+            whereClause += ` AND DATE(b.created_at) = $${values.length + 1}`;
+            values.push(DateCreate);
+        }
+
+        if (DateBooking) {
+            whereClause += ` AND DATE(b.date) = $${values.length + 1}`;
+            values.push(DateBooking);
+        }
+
+        const res = await client.query(
+            `SELECT
+                b.id AS id,
+                u.user_name AS pgt_name,
+                b.user_id as user_id,
+                u2.user_name AS user_name,
+                b.date,
+                b.created_at,
+                b.price,
+                b.status AS status,
+                b.time_from,
+                b.time_to
+            FROM
+                booking b
+            JOIN
+                "user" u ON b.pgt_id = u.id
+            JOIN
+                "user" u2 ON b.user_id = u2.id
+            WHERE 1=1 ${whereClause}
+            ORDER BY b.created_at DESC`,
+            values
+        );
+        if (res.rows) {
+            return res.rows;
+        } else {
+            return null;
+        }
+    } catch (error) {
+        // Handle query error
+        console.error(error);
+        throw error;
+    }
+};
+
+const getListBookingForAccIdFromDb = async (id) => {
     try {
         const res = await client.query(
-            `SELECT * FROM public.booking where kol_id = $1
+            `SELECT * FROM public.booking where pgt_id = $1
             ORDER BY created_at ASC`,
             [id]
         );
@@ -157,12 +193,12 @@ const getListBookingFromDb = async (id) => {
     }
 }
 
-const signupBookingDB = async (userId, pgtId,price,date,timeStart,timeEnd,category,note) => {
+const signupBookingDB = async (userId, pgtId, price, date, timeStart, timeEnd, category, note) => {
     try {
         // Kiểm tra xem có userId tồn tại không
         const userCheck = await client.query(`
         SELECT * FROM public."user" WHERE id = $1;`,
-        [userId] );
+            [userId]);
         if (userCheck.rows.length === 0) {
             return {
                 status: 400,
@@ -173,14 +209,14 @@ const signupBookingDB = async (userId, pgtId,price,date,timeStart,timeEnd,catego
         // Kiểm tra xem có pgt tồn tại không
         const pgtIdCheck = await client.query(`
         SELECT * FROM public."user" WHERE id = $1 AND role_id =2 ;`,
-        [pgtId] );
+            [pgtId]);
         if (pgtIdCheck.rows.length === 0) {
             return {
                 status: 400,
                 message: "Không tồn tại PGT"
             };
         }
-      
+
         // Kiểm tra xem có category tồn tại không
         // const categoryCheck = await client.query(`
         // SELECT * FROM public."category" WHERE id = $1 ;`,
@@ -191,7 +227,7 @@ const signupBookingDB = async (userId, pgtId,price,date,timeStart,timeEnd,catego
         //         message: "Không tồn tại lĩnh vực"
         //     };
         // }
-        
+
         // Lấy danh sách các booking IDs có xung đột
         const conflictBooking = await client.query(`
             SELECT
@@ -199,7 +235,7 @@ const signupBookingDB = async (userId, pgtId,price,date,timeStart,timeEnd,catego
             FROM
             booking
             WHERE
-            kol_id = $1
+            pgt_id = $1
             AND date = $2
             AND (
                 (time_from <= $3 AND time_to >= $3)
@@ -209,27 +245,27 @@ const signupBookingDB = async (userId, pgtId,price,date,timeStart,timeEnd,catego
         `, [pgtId, date, timeStart, timeEnd]);
 
         // Kiểm tra xem có xung đột hay không
-        
+
         if (conflictBooking.rows.length > 0) {
             const booking = conflictBooking.rows[0];
             const startTime = getTime(booking.time_from)
             const endTime = getTime(booking.time_to)
             const messsageError = `PGT đã được thuê từ ${startTime} đến ${endTime}`;
-            
+
             return {
                 status: 201,
                 message: "Lịch sử booking xung đột với lượt thuê mới.",
                 messsageError: messsageError,
             };
         }
-        
+
         //  tạo booking
         const res = await client.query(`
-        INSERT INTO public.booking (  user_id, kol_id, price, date, time_from, time_to, category_id, description ) 
+        INSERT INTO public.booking (  user_id, pgt_id, price, date, time_from, time_to, category_id, description ) 
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id; 
         `, [userId, pgtId, price, date, timeStart, timeEnd, category, note]);
-        
+
         if (res.rows.length > 0) {
             return {
                 status: 200,
@@ -248,35 +284,120 @@ const signupBookingDB = async (userId, pgtId,price,date,timeStart,timeEnd,catego
         throw error;
     }
 }
-
-const updateBookingToDB = async (id,type) => {
+const checkTimeBookingPgt = async (pgtId, date, timeStart, timeEnd) => {
     try {
-      
+        // Kiểm tra xem có pgt tồn tại không
+        const pgtIdCheck = await client.query(`
+        SELECT * FROM public."user" WHERE id = $1 AND role_id =2 ;`,
+            [pgtId]);
+        if (pgtIdCheck.rows.length === 0) {
+            return {
+                status: 400,
+                message: "Không tồn tại PGT"
+            };
+        }
+
+        // Lấy danh sách các booking IDs có xung đột
+        const conflictBooking = await client.query(`
+            SELECT
+            id, time_from, time_to
+            FROM
+            booking
+            WHERE
+            pgt_id = $1
+            AND date = $2
+            AND (
+                (time_from <= $3 AND time_to >= $3)
+                OR (time_from <= $4 AND time_to >= $4)
+                OR ($3 <= time_from AND $4 >= time_from)
+            );
+        `, [pgtId, date, timeStart, timeEnd]);
+
+        // Kiểm tra xem có xung đột hay không
+
+        if (conflictBooking.rows.length > 0) {
+            const booking = conflictBooking.rows[0];
+            const startTime = getTime(booking.time_from)
+            const endTime = getTime(booking.time_to)
+            const messsageError = `PGT đã được thuê từ ${startTime} đến ${endTime}`;
+
+            return {
+                status: 201,
+                message: "Lịch sử booking xung đột với lượt thuê mới.",
+                messsageError: messsageError,
+            };
+        }
+    } catch (error) {
+        // Xử lý lỗi truy vấn
+        console.error(error);
+        throw error;
+    }
+}
+const updateBookingToDB = async (id, type, rate = 5, comment = '') => {
+    try {
         // Kiểm tra xem có booking tồn tại không
         const bookingCheck = await client.query(`
-         SELECT id FROM public."booking" WHERE id = $1 ;`,
-        [id] );
+            SELECT id FROM public."booking" WHERE id = $1;
+        `, [id]);
+
         if (bookingCheck.rows.length === 0) {
             return {
                 status: 400,
                 message: "Không tồn tại lượt booking"
             };
         }
-        
-        //  update  booking
-        const res = await client.query(`
+
+        // Xây dựng câu truy vấn UPDATE
+        let updateQuery = `
             UPDATE public.booking
-            SET status= $1
+            SET status = $1,rate = $3,comment = $4
             WHERE id = $2
             RETURNING id; 
-        ;`,
-        [type,id] );
-        
+        `;
+        // Thực hiện câu truy vấn UPDATE
+        const res = await client.query(updateQuery, [type, id, rate, comment ]);
+
         if (res.rows.length > 0) {
             return {
                 status: 200,
                 message: "Sửa booking thành công.",
-                bookingId: res.rows  // Trả về ID của booking
+                bookingId: res.rows[0].id // Trả về ID của booking
+            };
+        } else {
+            return {
+                status: 400,
+                message: "Hệ thống lỗi",
+            };
+        }
+    } catch (error) {
+        // Xử lý lỗi truy vấn
+        console.error(error);
+        throw error;
+    }
+};
+
+const deleteBookingInDB = async (id) => {
+    try {
+        // Kiểm tra xem có booking tồn tại không
+        const bookingCheck = await client.query(`
+         SELECT id FROM public."booking" WHERE id = $1 ;`,
+            [id]);
+        if (bookingCheck.rows.length === 0) {
+            return {
+                status: 400,
+                message: "Không tồn tại lượt booking"
+            };
+        }
+        //  delete  booking
+        const res = await client.query(`
+        DELETE FROM public.booking
+        WHERE id = $1; 
+        ;`,
+            [id]);
+        if (res.rowCount === 1) {
+            return {
+                status: 200,
+                message: "Xóa booking thành công.",
             };
         } else {
             return {
@@ -290,12 +411,103 @@ const updateBookingToDB = async (id,type) => {
         throw error;
     }
 }
+const getChartInDb = async (Year, Month, Date) => {
+    try {
+        let query = '';
+        let queryParams = [];
+        // Nếu cung cấp cả Year và Month nhưng không cung cấp Date
+        // => Lấy số lượng booking theo ngày trong một tháng và tổng giá
+        if (Year && Month && !Date) {
+            query = `
+                SELECT EXTRACT(DAY FROM date) as day, COUNT(*) as bookings, SUM(price) as total_price
+                FROM public."booking"
+                WHERE EXTRACT(YEAR FROM date) = $1 AND EXTRACT(MONTH FROM date) = $2
+                GROUP BY day
+                ORDER BY day;
+            `;
+            queryParams = [Year, Month];
+        }
+        // Nếu chỉ cung cấp Year
+        // => Lấy số lượng booking theo tháng trong một năm và tổng giá
+        else if (Year && !Month) {
+            query = `
+                SELECT EXTRACT(MONTH FROM date) as month, COUNT(*) as bookings, SUM(price) as total_price
+                FROM public."booking"
+                WHERE EXTRACT(YEAR FROM date) = $1
+                GROUP BY month
+                ORDER BY month;
+            `;
+            queryParams = [Year];
+        }
+        // Thực thi query
+        const res = await client.query(query, queryParams);
+        if (res.rows) {
+            return res.rows;
+        } else {
+            return null;
+        }
+    } catch (error) {
+        // Handle query error
+        console.error(error);
+        throw error;
+    }
+};
+const getTopBookingUsersByDuration = async (Year, Month, Date) => {
+    try {
+        let query = '';
+        let queryParams = [];
+        let whereConditions = [];
+        if (Year) {
+            whereConditions.push(`EXTRACT(YEAR FROM b.date) = $1`);
+            queryParams.push(Year);
+        }
+        if (Month) {
+            whereConditions.push(`EXTRACT(MONTH FROM b.date) = $2`);
+            queryParams.push(Month);
+        }
+        if (Date) {
+            whereConditions.push(`EXTRACT(DAY FROM b.date) = $3`);
+            queryParams.push(Date);
+        }
+        let whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+        query = `
+            SELECT b.user_id, u.user_name, u.avatar, 
+                   SUM(EXTRACT(EPOCH FROM b.time_to) - EXTRACT(EPOCH FROM b.time_from))/60 as total_minutes
+            FROM public."booking" b
+            INNER JOIN public."user" u ON b.user_id = u.id
+            ${whereClause}
+            GROUP BY b.user_id, u.user_name, u.avatar
+            ORDER BY total_minutes DESC
+            LIMIT 10;
+        `;
+        const res = await client.query(query, queryParams);
+        if (res.rows) {
+            return res.rows.map(row => ({
+                user_id: row.user_id,
+                user_name: row.user_name,
+                avatar: row.avatar,
+                total_duration_minutes: row.total_minutes
+            }));
+        } else {
+            return null;
+        }
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+};
+
 
 module.exports = {
-    getListBookingFromDb,
+    getListBookingForAccIdFromDb,
     signupBookingDB,
     getListBookingOfUserFromDb,
     updateBookingToDB,
     getRequestBookingOfPGTFromDb,
-    getBookingDetail
+    getBookingDetail,
+    deleteBookingInDB,
+    getListBookingFromDb,
+    checkTimeBookingPgt,
+    getChartInDb,
+    getTopBookingUsersByDuration
 }

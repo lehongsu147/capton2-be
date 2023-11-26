@@ -51,7 +51,7 @@ const getListRequestBooking = async (req, res) => {
 const getBookingListOfPgt = async (req, res) => {
     try {
         const id = req.params.id;
-        const listBooking = await bookingModel.getListBookingFromDb(id);
+        const listBooking = await bookingModel.getListBookingForAccIdFromDb(id);
 
         if (listBooking !== null) {
             res.json({
@@ -62,6 +62,29 @@ const getBookingListOfPgt = async (req, res) => {
             res.status(400).json({
                 status: 400,
                 message: "Hệ thống lỗi hoặc không có booking cho PGT có ID này"
+            });
+        }
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+const getListBooking = async (req, res) => {
+    const { Keyword,DateCreate,DateBooking } = req.query
+    const keyword = Keyword ? Keyword.trim() : '';
+    try {
+        const listBooking = await bookingModel.getListBookingFromDb(keyword,DateCreate,DateBooking);
+        if (listBooking !== null) {
+            res.json({
+                status: 200,
+                data: listBooking
+            });
+        } else {
+            res.status(400).json({
+                status: 400,
+                message: "Hệ thống lỗi"
             });
         }
 
@@ -129,12 +152,53 @@ const createBooking = async(req, res) => {
 
 };
 
+
+const checkTimeBookingPgt = async(req, res) => {
+    const data = req.body;
+    try {
+        if (
+            !data.hasOwnProperty('pgtId')
+            || !data.hasOwnProperty('date')
+            || !data.hasOwnProperty('timeStart') 
+            || !data.hasOwnProperty('timeEnd') 
+        ) {
+            return res.status(400).json({ error: 'Hãy chọn ngày trước' });
+        }
+        if (!data.date || !Date.parse(data.date)) {
+            return res.status(400).json({ error: 'Ngày không hợp lệ' });
+        }
+        if ( !data.timeStart || !Date.parse(data.timeStart || !data.timeStart || !Date.parse(data.timeStart  ) )) {
+            return res.status(400).json({ error: 'Thời gian bắt dầu và kết thúc không hợp lệ' });
+        }
+        const formattedTimeStart = moment(data.timeStart).tz('Asia/Ho_Chi_Minh').format('HH:mm:ssZ');
+        const formattedTimeEnd = moment(data.timeEnd).tz('Asia/Ho_Chi_Minh').format('HH:mm:ssZ');
+
+        let date = moment(data.date).tz('Asia/Ho_Chi_Minh').format();
+        const response = await bookingModel.checkTimeBookingPgt (
+            data.pgtId,
+            date, 
+            formattedTimeStart,
+            formattedTimeEnd,
+        );
+        res.json({
+            status: response?.status,
+            message: response?.message,
+            messsageError: response?.messsageError,
+            data: response?.bookingId
+        });
+    } catch(error) {
+        console.error(error);
+        res.status(500).json({error: 'Internal server error'});
+    }
+};
+
 const updateBooking = async (req, res) => {
     try {
         const { id } = req.params;
         const { type } = req.query;
+        const { rate,comment } = req.body;
 
-        const response = await bookingModel.updateBookingToDB(id, type);
+        const response = await bookingModel.updateBookingToDB(id, type,rate,comment);
         if (response !== null) {
             res.json({
                 status: response.status,
@@ -154,10 +218,32 @@ const updateBooking = async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 }
+const deleteBooking = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const response = await bookingModel.deleteBookingInDB(id);
+        if (response !== null) {
+            res.json({
+                status: response.status,
+                message: response.message,
+            });
+        } else {
+            res.status(400).json({
+                status: 400,
+                message: "Hệ thống lỗi hoặc không có booking  có ID này"
+            });
+        }
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
 
 const getDetailBooking = async (req, res) => {
     try {
-        const id = req.params.id;
+        const { id } = req.params;
         const bookingDetail = await bookingModel.getBookingDetail(id);
 
         if (bookingDetail !== null) {
@@ -179,11 +265,60 @@ const getDetailBooking = async (req, res) => {
     }
 };
 
+const getChart = async (req, res) => {
+    const { Year,Month,Date } = req.query
+    try {
+        const chartResult = await bookingModel.getChartInDb(Year,Month,Date);
+        if (chartResult !== null) {
+            res.json({
+                status: 200,
+                data: chartResult
+            });
+        } else {
+            res.status(400).json({
+                status: 400,
+                message: "Hệ thống lỗi"
+            });
+        }
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+const getTopBookingPgt = async (req, res) => {
+    const { Year,Month,Date } = req.query
+    try {
+        const chartResult = await bookingModel.getTopBookingUsersByDuration(Year,Month,Date);
+        if (chartResult !== null) {
+            res.json({
+                status: 200,
+                data: chartResult
+            });
+        } else {
+            res.status(400).json({
+                status: 400,
+                message: "Hệ thống lỗi"
+            });
+        }
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
 module.exports = {
     getBookingListOfPgt,
     getHistoryBookingUser,
     getListRequestBooking,
-    postBooking: createBooking,
+    createBooking,
     updateBooking,
+    deleteBooking,
     getDetailBooking,
+    getListBooking,
+    checkTimeBookingPgt,
+    getChart,
+    getTopBookingPgt
 }

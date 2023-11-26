@@ -23,69 +23,244 @@ const loginDB = async (email, password) => {
     }
 }
 
+const getListAccount = async (Keyword, Type = 10) => {
+    let sql = `SELECT 
+    "user".id AS id,
+    "user".user_name,
+    "user".first_name,
+    "user".last_name,
+    "user".image,
+    "user".price,
+    "user".gender,
+    "user".age,
+    "user".email,
+    "user".address,
+    "user"."phone",
+    "user"."province",
+    "user"."facebook",
+    "user"."youtube",
+    "user"."instagram",
+    "user"."tiktok",
+    "user".flag AS  flag
+    FROM public."user"
+    `;
+    if (Type == 10) {
+        sql += `WHERE "user".role_id = 1`;
+    } else if (Type == 20) {
+        sql += `WHERE "user".role_id = 2`;
+    } else if (Type == 30) {
+        sql += `WHERE "user".role_id = 4`;
+    }
+    if (Keyword) {
+        sql += `AND "user".user_name LIKE '%${Keyword}%'`;
+    }
+    const queryResult = await client.query(sql);
+    return queryResult;
+}
+
+const requestToPgt = async (req, res) => {
+    const { id } = req.params;
+    const { categories, price } = req.body;
+    try {
+        await updateInfoPricePgt(id, price);
+        await updateCategoryListForPgt(id, categories);
+        return res.status(200).json({
+            status: 200,
+        });
+    } catch (error) {
+        res.status(400).json({ error: 'Hệ thống lỗi' });
+    }
+}
 
 const updateAccountInfoDb = async (id, inputValues) => {
     try {
-    let queryText = 'UPDATE public."user" SET ';
-    const queryValues = [id];
-    let queryFields = [];
-    let counter = 2; // Bắt đầu từ $2 vì $1 đã được sử dụng cho id
+        let queryText = 'UPDATE public."user" SET ';
+        const queryValues = [id];
+        let queryFields = [];
+        let counter = 2;
+        let newPassword = null;
 
-    // Duyệt qua đối tượng inputValues, tạo phần SQL cho mỗi trường không phải là null
-    for (const key in inputValues) {
-    if (inputValues[key] !== null && inputValues[key] !== undefined) {
-        queryValues.push(inputValues[key]);
-        queryFields.push(`"${key}"=$${counter}`);
-        counter++;
+        // Duyệt qua đối tượng inputValues, tạo phần SQL cho mỗi trường không phải là null
+        for (const key in inputValues) {
+            if (!Array.isArray(inputValues[key]) && inputValues[key] !== null && inputValues[key] !== undefined) {
+                if (key === 'password' && inputValues['new_password'] !== undefined) {
+                    const passwordMatch = await checkPasswordMatch(id, inputValues['password']);
+                    if (passwordMatch) {
+                        // Set the new password for update
+                        newPassword = inputValues['new_password'];
+                    } else {
+                        return {
+                            message: 'Mật khẩu cũ không đúng'
+                        };
+                    }
+                } else if (key !== 'new_password' && key !== 'password') {
+                    queryValues.push(inputValues[key]);
+                    queryFields.push(`"${key}"=$${counter}`);
+                    counter++;
+                }
+            }
         }
-    }
-    
-    if (queryFields.length === 0) {
-        throw new Error('No valid fields provided for update');
-    }
-    
-    // Thêm phần sau của câu lệnh SQL
-    queryText += queryFields.join(', ') + ' WHERE id = $1 RETURNING *';
-    // Gửi câu lệnh SQL đến cơ sở dữ liệu
-    const res = await client.query(queryText, queryValues);
-    // Xử lý kết quả trả về từ cơ sở dữ liệu
-    if (res.rows.length > 0) {
-        return res.rows[0];
-    } else {
-        return null;
-    }
+
+        // Add the new password to the queryValues and queryFields if it is set
+        if (newPassword !== null) {
+            queryValues.push(newPassword);
+            queryFields.push(`"password"=$${counter}`);
+        }
+
+        if (queryFields.length === 0) {
+            throw new Error('No valid fields provided for update');
+        }
+
+        // Combine all parts of the query
+        queryText += queryFields.join(', ') + ' WHERE id = $1 RETURNING *';
+
+        // Gửi câu lệnh SQL đến cơ sở dữ liệu
+        const res = await client.query(queryText, queryValues);
+
+        // Xử lý kết quả trả về từ cơ sở dữ liệu
+        if (res.rows.length > 0) {
+            return res.rows[0];
+        } else {
+            return null;
+        }
     } catch (error) {
         console.error(error);
         throw error;
     }
 };
 
+
+const checkPasswordMatch = async (id, password) => {
+    try {
+        const user = await client.query('SELECT password FROM public."user" WHERE id = $1', [id]);
+        if (user.rows.length > 0) {
+            // Compare the passwords (you may need to use a secure password comparison method)
+            if (user.rows[0].password === password) {
+                return true;
+            } else {
+                throw new Error('Password does not match.');
+            }
+        } else {
+            throw new Error('User not found.');
+        }
+    } catch (error) {
+        throw error;
+    }
+};
+// const updateCategoryListForPgt = async (id, list) => {
+//     let queryResult;
+//     if (list?.length > 0) {
+//         for (const item of list) {
+//             // Check if the combination of user_id and category_id already exists
+//             const checkDuplicateSql = `
+//                 SELECT * FROM public.categorylist
+//                 WHERE user_id = $1 AND category_id = $2;
+//             `;
+//             const duplicateCheckParams = [id, item];
+//             try {
+//                 const duplicateCheckResult = await client.query(checkDuplicateSql, duplicateCheckParams);
+//                 // If the combination doesn't exist, proceed with the insertion
+//                 if (duplicateCheckResult.rows.length === 0) {
+//                     const insertSql = `
+//                         INSERT INTO public.categorylist(user_id, category_id)
+//                         VALUES (${id}, ${item});
+//                     `;
+//                     try {
+//                         queryResult = await client.query(insertSql);
+//                         // Handle the query result if needed
+//                     } catch (error) {
+//                         // Handle the error if the insert query fails
+//                         console.error('Error executing SQL insert query:', error.message);
+//                     }
+//                 } else {
+//                     // Log a message or take other action if the combination already exists
+//                     console.log(`Combination user_id: ${id}, category_id: ${item} already exists.`);
+//                 }
+//             } catch (error) {
+//                 // Handle the error if the duplicate check query fails
+//                 console.error('Error executing SQL duplicate check query:', error.message);
+//             }
+//         }
+//     }
+//     return queryResult;
+// };
+
+const updateCategoryListForPgt = async (id, list) => {
+    let queryResult;
+    if (list?.length > 0) {
+        try {
+            // Get the current categoryList from the database
+            const getCurrentCategoriesSql = `
+                SELECT category_id FROM public.categorylist
+                WHERE user_id = $1;
+            `;
+            const currentCategoriesParams = [id];
+            const currentCategoriesResult = await client.query(getCurrentCategoriesSql, currentCategoriesParams);
+            const currentCategories = currentCategoriesResult.rows.map(row => row.category_id);
+
+            // Identify categories to be added and deleted
+            const categoriesToAdd = list.filter(item => !currentCategories.includes(item));
+            const categoriesToDelete = currentCategories.filter(item => !list.includes(item));
+
+            // Insert new categories
+            if (categoriesToAdd.length > 0) {
+                const insertSql = `
+                    INSERT INTO public.categorylist(user_id, category_id)
+                    VALUES ${categoriesToAdd.map(categoryId => `(${id}, ${categoryId})`).join(', ')}
+                    RETURNING *;
+                `;
+                const insertResult = await client.query(insertSql);
+                // Handle the query result if needed
+                console.log('Inserted categories:', insertResult.rows);
+            }
+
+            // Delete old categories
+            if (categoriesToDelete.length > 0) {
+                const deleteSql = `
+                    DELETE FROM public.categorylist
+                    WHERE user_id = $1 AND category_id IN (${categoriesToDelete.join(', ')})
+                    RETURNING *;
+                `;
+                const deleteParams = [id];
+                const deleteResult = await client.query(deleteSql, deleteParams);
+                // Handle the query result if needed
+                console.log('Deleted categories:', deleteResult.rows);
+            }
+
+            queryResult = { success: true, message: 'CategoryList updated successfully' };
+        } catch (error) {
+            // Handle the error if any query fails
+            console.error('Error updating CategoryList:', error.message);
+            queryResult = { success: false, message: 'Error updating CategoryList' };
+        }
+    }
+    return queryResult;
+};
 const signupDB = async (email, password) => {
     try {
         // Kiểm tra xem có bản ghi với địa chỉ email đã tồn tại không
         const emailCheck = await client.query(`
         SELECT * FROM public."user" WHERE email = $1;`,
-        [email] );
+            [email]);
         if (emailCheck.rows.length > 0) {
             return {
-                status: 400,
+                status: 210,
                 message: "Địa chỉ email đã tồn tại"
             };
         }
-        
+
         // Nếu địa chỉ email không tồn tại, thì tiến hành tạo tài khoản
         const username = email.split('@')[0];
         const res = await client.query(`
             INSERT INTO public."user"(email, password, avatar, image,user_name,role_id,introduction)
             VALUES ($1, $2, $3, $4,$5,1,'Xin chào mọi người ❤️')
-            RETURNING *;`, [email, password, AvatarDefault, ImageDefault,username]
+            RETURNING *;`, [email, password, AvatarDefault, ImageDefault, username]
         );
-        console.log(res);
         if (res.rows.length > 0) {
             return {
                 status: 200,
                 message: "Đăng ký thành công",
-                user: res.rows[0]
+                email: res.rows[0].email
             };
         } else {
             return {
@@ -99,9 +274,34 @@ const signupDB = async (email, password) => {
         throw error;
     }
 }
-    
+
+const getListCategoryFromDb = async (Type) => {
+    let sql = `SELECT 
+        "user".id as id, 
+        "category".name as category_name,
+        "category".id as category_id,
+        "category".image as image_category
+    FROM "user"
+    LEFT JOIN  "categorylist" ON  "user".id = categorylist.user_id
+    LEFT JOIN  "category" ON "categorylist".category_id = "category"."id"
+    `;
+
+    if (Type == 30) {
+        sql += ` WHERE "user".role_id = 4`;
+    } else {
+        sql += ` WHERE "user".role_id = 2`;
+    }
+    const queryResult = await client.query(sql);
+    return queryResult;
+};
+
+
 module.exports = {
     loginDB,
     signupDB,
-    updateAccountInfoDb
+    getListAccount,
+    getListCategoryFromDb,
+    requestToPgt,
+    updateAccountInfoDb,
+    updateCategoryListForPgt
 }

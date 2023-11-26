@@ -1,37 +1,91 @@
 const { StatusCodes } = require("http-status-codes");
-const accountModel = require('../models/accountModel')
-
+const accountModel = require('../models/accountModel');
+const sendEmail = require("./utils/Utils");
 function isValidEmail(email) {
   // Sử dụng biểu thức chính quy để kiểm tra định dạng email
   const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
   return emailRegex.test(email);
 }
 
+const parseDataListPGT = (queryResult, queryListGameOfPgt) => {
+  const users = {};
+  for (let row of queryResult.rows) {
+    const userId = row.id;
+    if (!users[userId]) {
+      users[userId] = {
+        id: userId,
+        user_name: row.user_name,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        email: row.email,
+        image: row.image,
+        price: row?.price,
+        age: row.age,
+        gender: row.gender,
+        phone: row.phone,
+        flag: row.flag,
+        avatar: row.avatar,
+        image: row.image,
+        textShort: row.text_short,
+        star: 4.5,
+        comment: 452,
+        listgame: []
+      };
+    }
+  }
+
+  for (let game of queryListGameOfPgt.rows) {
+    if (users[game.id]) {
+      users[game.id].listgame.push({
+        id: game.category_id,
+        name: game.category_name,
+        image: game.image_category
+      });
+    }
+  }
+  return Object.values(users);
+}
+
 const accountController = {
-  // signup
-  signupAccount: async (req, res) => {
-    const { email, password, isAdmin } = req.body;
+  getListAccount: async (req, res) => {
+    const { Keyword, Type } = req.query
     try {
-      // Kiểm tra định dạng email
-      if (!isValidEmail(email)) {
-        return res.status(StatusCodes.BAD_REQUEST).json({ error: 'Email không hợp lệ' });
+      let response = [];
+      if (Type == 10) {
+        const resp = await accountModel.getListAccount(Keyword);
+        response = resp?.rows;
       }
-
-      // Kiểm tra độ dài tối thiểu của mật khẩu
-      if (password.length < 6) {
-        return res.status(StatusCodes.BAD_REQUEST).json({ error: 'Mật khẩu phải có ít nhất 6 ký tự' });
+      else {
+        const queryListPgt = await accountModel.getListAccount(Keyword, Type);
+        const queryListGameOfPgt = await accountModel.getListCategoryFromDb(Type);
+        response = parseDataListPGT(queryListPgt, queryListGameOfPgt);
       }
-
-      const response = await accountModel.signupDB(
-        email,
-        password,
-      );
-      res.status(StatusCodes.CREATED).json({
-        status: response?.status,
-        message: response?.message,
+      res.status(200).json({
+        status: 200,
+        data: response,
       });
     } catch (error) {
       res.status(error.code).json({ error: error.message });
+    }
+  },
+  signupAccount: async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      const signupResult = await accountModel.signupDB(email, password);
+
+      if (signupResult.status === 200) {
+        const email = signupResult?.email;
+        const subject = 'Chào mừng bạn đến với ứng dụng!';
+        const message = 'Cảm ơn bạn đã đăng ký tài khoản.';
+        await sendEmail(email, subject, message);
+        res.status(200).json({ status: 200, message: signupResult.message });
+      } else {
+        res.status(signupResult.status).json({ status: 210, message: signupResult.message });
+      }
+    } catch (error) {
+      console.error('Error signing up:', error);
+      res.status(500).json({ success: false, message: 'Đã có lỗi xảy ra.' });
     }
   },
   // login
@@ -43,11 +97,10 @@ const accountController = {
         res.status(StatusCodes.OK).json({ user });
       }
       else {
-        // res.status(205).json({ error: 'Tên tài khoản hoặc mật khẩu sai'});
-        res.status(210).json({ error: 'Tên tài khoản hoặc mật khẩu không chính xác'});
+        res.status(210).json({ error: 'Tên tài khoản hoặc mật khẩu không chính xác' });
       }
     } catch (error) {
-      res.status(400).json({ error: 'Hệ thống lỗi'});
+      res.status(400).json({ error: 'Hệ thống lỗi' });
     }
   },
   // login
@@ -55,19 +108,29 @@ const accountController = {
     const { id } = req.params;
     const updateData = req.body;
     try {
+      // cập nhật thông tin tài khoản
       const user = await accountModel.updateAccountInfoDb(id, updateData);
-      if (user) {
+      // cập nhật danh sách lĩnh vực
+      const updateCategory = await accountModel.updateCategoryListForPgt(id, updateData?.listgame);
+      if (user?.message) {
+        return res.status(200).json({
+          status: 210,
+          message: user?.message
+        });
+      }
+      else if (user) {
         return res.status(200).json({
           status: 200,
           user
         });
       } else {
-          return res.status(404).json({ message: "User not found" });
+        return res.status(404).json({ message: "User not found" });
       }
     } catch (error) {
-      res.status(400).json({ error: 'Hệ thống lỗi'});
+      res.status(400).json({ error: 'Hệ thống lỗi' });
     }
   },
+
 };
 
 module.exports = accountController;
