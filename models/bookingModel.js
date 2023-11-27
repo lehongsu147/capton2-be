@@ -217,21 +217,10 @@ const signupBookingDB = async (userId, pgtId, price, date, timeStart, timeEnd, c
             };
         }
 
-        // Kiểm tra xem có category tồn tại không
-        // const categoryCheck = await client.query(`
-        // SELECT * FROM public."category" WHERE id = $1 ;`,
-        // [category] );
-        // if (categoryCheck.rows.length === 0) {
-        //     return {
-        //         status: 400,
-        //         message: "Không tồn tại lĩnh vực"
-        //     };
-        // }
-
         // Lấy danh sách các booking IDs có xung đột
         const conflictBooking = await client.query(`
             SELECT
-            id, time_from, time_to
+            id,status, time_from, time_to
             FROM
             booking
             WHERE
@@ -246,7 +235,7 @@ const signupBookingDB = async (userId, pgtId, price, date, timeStart, timeEnd, c
 
         // Kiểm tra xem có xung đột hay không
 
-        if (conflictBooking.rows.length > 0) {
+        if (conflictBooking.rows.length > 0 && conflictBooking.rows[0].status !== 3) {
             const booking = conflictBooking.rows[0];
             const startTime = getTime(booking.time_from)
             const endTime = getTime(booking.time_to)
@@ -300,7 +289,7 @@ const checkTimeBookingPgt = async (pgtId, date, timeStart, timeEnd) => {
         // Lấy danh sách các booking IDs có xung đột
         const conflictBooking = await client.query(`
             SELECT
-            id, time_from, time_to
+            id,status, time_from, time_to
             FROM
             booking
             WHERE
@@ -315,7 +304,7 @@ const checkTimeBookingPgt = async (pgtId, date, timeStart, timeEnd) => {
 
         // Kiểm tra xem có xung đột hay không
 
-        if (conflictBooking.rows.length > 0) {
+        if (conflictBooking.rows.length > 0 && conflictBooking.rows[0].status !== 3) {
             const booking = conflictBooking.rows[0];
             const startTime = getTime(booking.time_from)
             const endTime = getTime(booking.time_to)
@@ -472,22 +461,22 @@ const getTopBookingUsersByDuration = async (Year, Month, Date) => {
         let whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
         query = `
         SELECT 
-        b.user_id, 
+        b.pgt_id, 
         u.user_name, 
         u.avatar, 
         SUM(EXTRACT(EPOCH FROM b.time_to) - EXTRACT(EPOCH FROM b.time_from))/60 as total_minutes,
         SUM(EXTRACT(EPOCH FROM b.time_to) - EXTRACT(EPOCH FROM b.time_from))/3600 as total_hours
         FROM public."booking" b
-        INNER JOIN public."user" u ON b.user_id = u.id
+        INNER JOIN public."user" u ON b.pgt_id = u.id
         ${whereClause}
-        GROUP BY b.user_id, u.user_name, u.avatar
+        GROUP BY b.pgt_id, u.user_name, u.avatar
         ORDER BY total_minutes DESC
         LIMIT 10;
         `;
         const res = await client.query(query, queryParams);
         if (res.rows) {
             return res.rows.map(row => ({
-                user_id: row.user_id,
+                pgt_id: row.pgt_id,
                 user_name: row.user_name,
                 avatar: row.avatar,
                 total_duration_minutes: row.total_hours

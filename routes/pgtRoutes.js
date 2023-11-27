@@ -5,6 +5,7 @@ const pgtController = require('../controllers/pgtController')
 const router = express.Router()
 
 router.get('/', pgtController.getPgtList)
+router.get('/feedback/:id', pgtController.getPgtFeedbackList)
 router.get('/:id', pgtController.getPgtDetail)
 
 // change to role pgt

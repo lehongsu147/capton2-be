@@ -26,18 +26,33 @@ const getAllPgtFromDb = async (Type, KeyWord, Category, Rate, Comment) => {
     if (Category) {
         sql += ` AND CategoryList.category_id = ${Category}`;
     }
-    // if (Rate) {
-    //     sql += ` AND rate = ${Rate}`;
-    // }
-
-    // if (Comment) {
-    //     sql += ` AND comment = ${Comment}`;
-    // }
     const queryResult = await client.query(sql);
 
     return queryResult;
 }
-
+const getFeedbackFromDb = async (id) => {
+    // lấy danh sách các feedback booking
+    let sql = `SELECT b.id,b.status, b.date, user_id, rate, comment,u.avatar, u.user_name,time_from,
+	b.time_to
+    FROM public.booking b 
+	INNER JOIN public."user" u ON b.user_id = u.id
+    WHERE pgt_id = ${id} and b.status = 5
+    ORDER BY date DESC;
+    `;
+    // lấy số lương booking status = 5
+    let sqlStatusDone=`SELECT COUNT(*) FROM public.booking WHERE pgt_id = ${id} AND status = 5`
+    const queryResult = await client.query(sql);
+    const queryStatusDoneResult = await client.query(sqlStatusDone);
+    if (queryResult.rows){
+        return {
+            status: 200,
+            data: queryResult.rows,
+            rate: ( queryStatusDoneResult.rows[0].count/ queryResult.rows.length )* 100
+        }
+    }else{
+        return null
+    }
+}
 const getUserFromDB = async (id) => {
     const sql = ` SELECT * FROM public."user" where id = ${id} `;
     const queryResult = await client.query(sql);
@@ -133,6 +148,7 @@ const deleteRequestToPgtInDb = async (id) => {
 
 module.exports = {
     getAllPgtFromDb,
+    getFeedbackFromDb,
     getListImageUserFromDB,
     getUserFromDB,
     updateInfoPricePgt,

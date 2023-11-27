@@ -295,6 +295,16 @@ const getListCategoryFromDb = async (Type) => {
     return queryResult;
 };
 
+const getCommentCountListFromDb = async (Type) => {
+    let sqlComment = `SELECT pgt_id as id, COUNT(*) AS booking_count
+    FROM public.booking
+    WHERE status = 5
+    GROUP BY pgt_id;
+   `;
+   const queryResult = await client.query(sqlComment);
+    return queryResult;
+};
+
 
 module.exports = {
     loginDB,
@@ -303,5 +313,6 @@ module.exports = {
     getListCategoryFromDb,
     requestToPgt,
     updateAccountInfoDb,
-    updateCategoryListForPgt
+    updateCategoryListForPgt,
+    getCommentCountListFromDb
 }

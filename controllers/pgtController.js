@@ -1,5 +1,5 @@
-const { getListCategoryFromDb } = require('../models/accountModel');
-const { getListImageUserFromDB, getAllPgtFromDb, getListGamePgtFromDb, getUserFromDB, updateInfoPricePgt, updateCategoryListForPgt, updateInfoRequestPgt } = require('../models/pgtModel')
+const { getListCategoryFromDb, getCommentCountListFromDb } = require('../models/accountModel');
+const { getListImageUserFromDB, getAllPgtFromDb, getListGamePgtFromDb, getUserFromDB, updateInfoPricePgt, updateCategoryListForPgt, updateInfoRequestPgt, getFeedbackFromDb } = require('../models/pgtModel')
 
 const parseDataPGT = (queryResult, queryListGameOfPgt, listImage) => {
     const users = {};
@@ -48,7 +48,7 @@ const parseDataPGT = (queryResult, queryListGameOfPgt, listImage) => {
     }
     return Object.values(users);
 }
-const parseDataListPGT = (queryResult, queryListGameOfPgt) => {
+const parseDataListPGT = (queryResult, queryListGameOfPgt,queryCommentCountList) => {
     const users = {};
     for (let row of queryResult.rows) {
         const userId = row.id;
@@ -61,7 +61,7 @@ const parseDataListPGT = (queryResult, queryListGameOfPgt) => {
                 image: row.image,
                 textShort: row.text_short,
                 star: 4.5,
-                comment: 452,
+                comment: 0,
                 listgame: []
             };
         }
@@ -76,15 +76,35 @@ const parseDataListPGT = (queryResult, queryListGameOfPgt) => {
             });
         }
     }
+    for (let comment of queryCommentCountList.rows) {
+        if (users[comment.id]) {
+            users[comment.id].comment = comment.booking_count
+        }
+    }
     return Object.values(users);
 
 }
+
+const getPgtFeedbackList = async (req, res) => {
+    try {
+        const id = req.params.id;
+        const result = await getFeedbackFromDb(id);
+        if (result?.status){
+            res.status(200).json({ data: result.data,status: result.status, rate: result.rate });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 const getPgtList = async (req, res) => {
     try {
         const { Type, KeyWord, Category, Rate, Comment } = req.query
         const queryListPgt = await getAllPgtFromDb(Type, KeyWord, Category, Rate, Comment);
         const queryListGameOfPgt = await getListCategoryFromDb();
-        const userList = parseDataListPGT(queryListPgt, queryListGameOfPgt);
+        const queryCommentCountList = await getCommentCountListFromDb();
+        const userList = parseDataListPGT(queryListPgt, queryListGameOfPgt,queryCommentCountList);
         res.json(userList);
     } catch (error) {
         console.error(error);
@@ -153,5 +173,6 @@ module.exports = {
     getPgtDetail,
     requestToPgt,
     deleteRequestToPgt,
+    getPgtFeedbackList,
     acceptInfoRequestBooking
 }
