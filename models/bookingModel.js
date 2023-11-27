@@ -355,7 +355,7 @@ const updateBookingToDB = async (id, type, rate = 5, comment = '') => {
             RETURNING id; 
         `;
         // Thực hiện câu truy vấn UPDATE
-        const res = await client.query(updateQuery, [type, id, rate, comment ]);
+        const res = await client.query(updateQuery, [type, id, rate, comment]);
 
         if (res.rows.length > 0) {
             return {
@@ -471,14 +471,18 @@ const getTopBookingUsersByDuration = async (Year, Month, Date) => {
         }
         let whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
         query = `
-            SELECT b.user_id, u.user_name, u.avatar, 
-                   SUM(EXTRACT(EPOCH FROM b.time_to) - EXTRACT(EPOCH FROM b.time_from))/60 as total_minutes
-            FROM public."booking" b
-            INNER JOIN public."user" u ON b.user_id = u.id
-            ${whereClause}
-            GROUP BY b.user_id, u.user_name, u.avatar
-            ORDER BY total_minutes DESC
-            LIMIT 10;
+        SELECT 
+        b.user_id, 
+        u.user_name, 
+        u.avatar, 
+        SUM(EXTRACT(EPOCH FROM b.time_to) - EXTRACT(EPOCH FROM b.time_from))/60 as total_minutes,
+        SUM(EXTRACT(EPOCH FROM b.time_to) - EXTRACT(EPOCH FROM b.time_from))/3600 as total_hours
+        FROM public."booking" b
+        INNER JOIN public."user" u ON b.user_id = u.id
+        ${whereClause}
+        GROUP BY b.user_id, u.user_name, u.avatar
+        ORDER BY total_minutes DESC
+        LIMIT 10;
         `;
         const res = await client.query(query, queryParams);
         if (res.rows) {
@@ -486,7 +490,7 @@ const getTopBookingUsersByDuration = async (Year, Month, Date) => {
                 user_id: row.user_id,
                 user_name: row.user_name,
                 avatar: row.avatar,
-                total_duration_minutes: row.total_minutes
+                total_duration_minutes: row.total_hours
             }));
         } else {
             return null;
@@ -497,7 +501,23 @@ const getTopBookingUsersByDuration = async (Year, Month, Date) => {
     }
 };
 
+// Function to get user's wallet information by userId
+const getWalletByUserId = async (userId) => {
+    try {
+        // Implement your database query to retrieve wallet information based on userId
+        const walletQuery = `
+            SELECT id, money_balance
+            FROM public.wallet
+            WHERE user_id = $1
+        `;
+        const walletRes = await client.query(walletQuery, [userId]);
 
+        return walletRes.rows[0]; // Assuming there is only one wallet per user
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+};
 module.exports = {
     getListBookingForAccIdFromDb,
     signupBookingDB,
@@ -509,5 +529,6 @@ module.exports = {
     getListBookingFromDb,
     checkTimeBookingPgt,
     getChartInDb,
-    getTopBookingUsersByDuration
+    getTopBookingUsersByDuration,
+    getWalletByUserId
 }

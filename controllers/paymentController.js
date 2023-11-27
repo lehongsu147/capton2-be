@@ -1,10 +1,9 @@
-const { getPaymentInDB, updatePayment, getPaymentListForUserInDB } = require("../models/paymentModel");
+const { getPaymentInDB, updatePayment, getPaymentListForUserInDB, updateMoneyWallet, updatePaymentHistory } = require("../models/paymentModel");
 
 const getPaymentDetail = async (req, res, next) => {
     try {
         const id = req.params.id;
         const paymentDetail = await getPaymentInDB(id);
-
         if (paymentDetail !== null) {
             res.json({
                 status: 200,
@@ -30,6 +29,7 @@ const getPaymentListForUser = async (req, res, next) => {
         if (paymentDetail !== null) {
             res.json({
                 status: 200,
+                money: paymentDetail.money,
                 data: paymentDetail.data
             });
         } else {
@@ -46,12 +46,37 @@ const getPaymentListForUser = async (req, res, next) => {
     }
 }
 
+
+const updatePayMentBookingForAcc = async (req, res, next) => {
+    try {
+        const id = req.params.id;
+        const { amount, type} = req.body;
+        const reps = await updatePaymentHistory(id, amount, type);
+        const result = await updateMoneyWallet(id, amount);
+        if (result?.status === 200) {
+            res.json({
+                status: 200,
+            });
+        } else {
+            res.status(400).json({
+                status: 400,
+                message: "Hệ thống lỗi"
+            });
+        }
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
 const updatePayMentStatus = async (req, res, next) => {
     try {
         const id = req.params.id;
-        const  { status,txtNo}= req.body;
-        const paymentDetail = await updatePayment(id,status,txtNo);
-        if (paymentDetail?.status === 200 ){
+        const { amount, userId, status, txtNo } = req.body;
+        const paymentDetail = await updatePayment(id, status, txtNo);
+        const result = await updateMoneyWallet(userId, amount);
+        if (paymentDetail?.status === 200) {
             res.json({
                 status: 200,
                 data: paymentDetail?.data
@@ -73,4 +98,5 @@ module.exports = {
     getPaymentDetail,
     getPaymentListForUser,
     updatePayMentStatus,
+    updatePayMentBookingForAcc
 }

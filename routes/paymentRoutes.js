@@ -6,7 +6,7 @@ const request = require('request');
 const moment = require('moment');
 const { await } = require('await');
 const { paymentCreate } = require('../models/paymentModel');
-const { getPaymentDetail, getPaymentListForUser, updatePayMentStatus } = require('../controllers/paymentController');
+const { getPaymentDetail, getPaymentListForUser, updatePayMentStatus, updatePayMentBookingForAcc } = require('../controllers/paymentController');
 
 router.post('/create_payment_url', async function (req, res, next) {
     process.env.TZ = 'Asia/Ho_Chi_Minh';
@@ -24,7 +24,7 @@ router.post('/create_payment_url', async function (req, res, next) {
     let returnUrl = config.get('vnp_ReturnUrl');
     let orderId = moment(date).format('DDHHmmss');
 
-    let { pgtId,userId,pgtName, amount, bookingId } = req.body;
+    let { userId,amount } = req.body;
     let bankCode = req.body.bankCode;
     let locale = req.body.language;
     
@@ -38,7 +38,7 @@ router.post('/create_payment_url', async function (req, res, next) {
     vnp_Params['vnp_Locale'] = locale;
     vnp_Params['vnp_CurrCode'] = currCode;
     vnp_Params['vnp_TxnRef'] = orderId;
-    const description = `Thanh toan cho GD: ${orderId}, PGT ${pgtName}`;
+    const description = `Nạp tiền vào ví`;
     vnp_Params['vnp_OrderInfo'] = description;
     vnp_Params['vnp_OrderType'] = 'other';
     vnp_Params['vnp_Amount'] = amount * 100;
@@ -50,8 +50,8 @@ router.post('/create_payment_url', async function (req, res, next) {
     }
 
     vnp_Params = sortObject(vnp_Params);
-    await paymentCreate(orderId, amount, description, pgtId, userId, bookingId);
-
+    // const Money = amount / 100;
+    await paymentCreate(orderId, amount, description, userId);
 
     let querystring = require('qs');
     let signData = querystring.stringify(vnp_Params, { encode: false });
@@ -69,6 +69,7 @@ router.post('/create_payment_url', async function (req, res, next) {
 });
 
 router.get('/user/:id', getPaymentListForUser) 
+router.put('/user/:id', updatePayMentBookingForAcc) 
 
 router.get('/:id', getPaymentDetail) 
 

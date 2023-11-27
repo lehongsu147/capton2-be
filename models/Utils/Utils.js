@@ -53,7 +53,12 @@ const getTime = (inputTime) => {
     return '0'
 }
 
+const generateRandomNumber = () => {
+    return Math.floor(10000000 + Math.random() * 90000000);
+  };
+
 module.exports = {
     getTime,
     getDate,
+    generateRandomNumber
 }

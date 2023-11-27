@@ -27,6 +27,7 @@ const parseDataListPGT = (queryResult, queryListGameOfPgt) => {
         avatar: row.avatar,
         image: row.image,
         textShort: row.text_short,
+        rate: row.rate,
         star: 4.5,
         comment: 452,
         listgame: []

@@ -3,6 +3,7 @@ const client = require('../db')
 const getAllPgtFromDb = async (Type, KeyWord, Category, Rate, Comment) => {
     let sql = `SELECT 
         "user".id AS id, 
+        "user".avatar, 
         "user".user_name, 
         "user".hot_pgt, 
         "user".image AS image, 
