@@ -20,7 +20,6 @@ router.post('/time', bookingController.checkTimeBookingPgt)
 
 // xóa booking
 router.delete('/:id', bookingController.deleteBooking)
-
 // cập nhật booking
 router.put('/:id', bookingController.updateBooking)
 // Danh sách toàn bộ lượt booking (specific route)
