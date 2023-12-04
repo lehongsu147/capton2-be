@@ -10,6 +10,7 @@ router.get("/", accountController.getListAccount);
 router.post("/login", accountController.loginAccount);
 //edit info
 router.put("/:id", accountController.updateAccountInfo);
+router.put("/photo/:id", accountController.updateAccountPhotoList);
 // signup route
 router.post("/signup", accountController.signupAccount);
 

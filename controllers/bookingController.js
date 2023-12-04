@@ -209,11 +209,11 @@ const updateBooking = async (req, res) => {
     try {
         const { id } = req.params;
         const { type } = req.query;
-        const { rate, comment, pgt_id,amount } = req.body;
+        const { rate,user_name, comment, pgt_id,amount } = req.body;
 
         const response = await bookingModel.updateBookingToDB(id, type, rate, comment);
         if ( parseInt(type) == 5){
-            const reps = await updatePaymentHistory(pgt_id, amount,20);
+            const reps = await updatePaymentHistory(pgt_id, amount,20,user_name);
             const result = await updateMoneyWallet(pgt_id, amount);
         }
         if (response !== null) {

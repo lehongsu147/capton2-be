@@ -37,6 +37,8 @@ const getListAccount = async (Keyword, Type = 10) => {
     "user".address,
     "user"."phone",
     "user"."province",
+    "user"."district",
+    "user"."ward",
     "user"."facebook",
     "user"."youtube",
     "user"."instagram",
@@ -71,6 +73,47 @@ const requestToPgt = async (req, res) => {
         res.status(400).json({ error: 'Hệ thống lỗi' });
     }
 }
+
+const updatePhotoListInDb = async (id, data) => {
+    try {
+        const existingPhotos = await client.query(
+            'SELECT id,user_id FROM public.galery WHERE user_id = $1',
+            [id]
+        );
+
+        // Delete existing photos
+        for (let i = 0; i < existingPhotos.rows.length; i++) {
+            const idDelete = existingPhotos.rows[i]?.id;
+            const respRemove = await client.query(
+                'DELETE FROM public.galery WHERE id= $1',
+                [idDelete]
+            );
+            if (respRemove.rowCount !== 1) {
+                // If deletion fails, you might want to handle it appropriately
+                console.error("Deletion failed for id:", idDelete);
+            }
+        }
+        // Insert new photos
+        for (let i = 0; i < data?.length; i++) {
+            const link = data[i];
+            const respAdd = await client.query(
+                'INSERT INTO public.galery (user_id, link) VALUES ($1, $2)',
+                [id, link]
+            );
+            if (respAdd.rowCount !== 1) {
+                // If insertion fails, you might want to handle it appropriately
+                console.error("Insertion failed for link:", link);
+            }
+        }
+        // Return status after both deletion and insertion
+        return {
+            status: 200
+        };
+    } catch (error) {
+        throw error;
+    }
+}
+
 
 const updateAccountInfoDb = async (id, inputValues) => {
     try {
@@ -138,7 +181,7 @@ const checkPasswordMatch = async (id, password) => {
             if (user.rows[0].password === password) {
                 return true;
             } else {
-                throw new Error('Password does not match.');
+                return false;
             }
         } else {
             throw new Error('User not found.');
@@ -147,43 +190,6 @@ const checkPasswordMatch = async (id, password) => {
         throw error;
     }
 };
-// const updateCategoryListForPgt = async (id, list) => {
-//     let queryResult;
-//     if (list?.length > 0) {
-//         for (const item of list) {
-//             // Check if the combination of user_id and category_id already exists
-//             const checkDuplicateSql = `
-//                 SELECT * FROM public.categorylist
-//                 WHERE user_id = $1 AND category_id = $2;
-//             `;
-//             const duplicateCheckParams = [id, item];
-//             try {
-//                 const duplicateCheckResult = await client.query(checkDuplicateSql, duplicateCheckParams);
-//                 // If the combination doesn't exist, proceed with the insertion
-//                 if (duplicateCheckResult.rows.length === 0) {
-//                     const insertSql = `
-//                         INSERT INTO public.categorylist(user_id, category_id)
-//                         VALUES (${id}, ${item});
-//                     `;
-//                     try {
-//                         queryResult = await client.query(insertSql);
-//                         // Handle the query result if needed
-//                     } catch (error) {
-//                         // Handle the error if the insert query fails
-//                         console.error('Error executing SQL insert query:', error.message);
-//                     }
-//                 } else {
-//                     // Log a message or take other action if the combination already exists
-//                     console.log(`Combination user_id: ${id}, category_id: ${item} already exists.`);
-//                 }
-//             } catch (error) {
-//                 // Handle the error if the duplicate check query fails
-//                 console.error('Error executing SQL duplicate check query:', error.message);
-//             }
-//         }
-//     }
-//     return queryResult;
-// };
 
 const updateCategoryListForPgt = async (id, list) => {
     let queryResult;
@@ -301,7 +307,7 @@ const getCommentCountListFromDb = async (Type) => {
     WHERE status = 5
     GROUP BY pgt_id;
    `;
-   const queryResult = await client.query(sqlComment);
+    const queryResult = await client.query(sqlComment);
     return queryResult;
 };
 
@@ -314,5 +320,6 @@ module.exports = {
     requestToPgt,
     updateAccountInfoDb,
     updateCategoryListForPgt,
-    getCommentCountListFromDb
+    getCommentCountListFromDb,
+    updatePhotoListInDb
 }

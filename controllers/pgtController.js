@@ -16,6 +16,8 @@ const parseDataPGT = (queryResult, queryListGameOfPgt, listImage) => {
                 avatar: row.avatar,
                 address: row.address,
                 province: row.province,
+                district: row.district,
+                ward: row.ward,
                 facebook: row.facebook,
                 tiktok: row.tiktok,
                 youtube: row.youtube,

@@ -104,7 +104,7 @@ const accountController = {
       res.status(400).json({ error: 'Hệ thống lỗi' });
     }
   },
-  // login
+  // update
   updateAccountInfo: async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
@@ -132,6 +132,24 @@ const accountController = {
     }
   },
 
+
+  //update photo list
+  updateAccountPhotoList: async (req, res) => {
+    const { id } = req.params;
+    const updateData = req.body;
+    try {
+      const resp = await accountModel.updatePhotoListInDb(id, updateData);
+      if (resp) {
+        return res.status(200).json({
+          status: resp.status,
+        });
+      } else {
+        return res.status(404).json({ message: "User not found" });
+      }
+    } catch (error) {
+      res.status(400).json({ error: 'Hệ thống lỗi' });
+    }
+  },
 };
 
 module.exports = accountController;

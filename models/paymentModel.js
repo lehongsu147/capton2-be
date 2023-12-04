@@ -160,7 +160,7 @@ const updateMoneyWallet = async (user_id, amount,isAdd = true) => {
         throw error;
     }
 }
-const updatePaymentHistory = async (user_id, amountMoney,type = 0) => {
+const updatePaymentHistory = async (user_id, amountMoney,type = 0,user_name) => {
     try {
         let description = '';
         if ( type == 0 ){
@@ -170,7 +170,7 @@ const updatePaymentHistory = async (user_id, amountMoney,type = 0) => {
              description = 'Hoàn tiền do hủy Booking';
         }
         if ( type == 20 ){
-             description = 'Phí lượt booking thành công';
+             description = 'Phí lượt booking thành công từ' + ' ' + user_name;
         }
         const vnp_TxnRef =  generateRandomNumber();
         const res = await client.query(`
