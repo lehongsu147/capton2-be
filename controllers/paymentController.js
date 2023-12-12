@@ -51,7 +51,9 @@ const updatePayMentBookingForAcc = async (req, res, next) => {
     try {
         const id = req.params.id;
         const { amount, type} = req.body;
+        //  thêm lịch sử giao dịch
         const reps = await updatePaymentHistory(id, amount, type);
+        //  cập nhật tiền trong ví
         const result = await updateMoneyWallet(id, amount);
         if (result?.status === 200) {
             res.json({

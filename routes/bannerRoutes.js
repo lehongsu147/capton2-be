@@ -5,7 +5,6 @@ const bannerController = require('../controllers/bannerController')
 const router = express.Router()
 
 router.get('/', bannerController.getBannerList)
-
 router.post('/', bannerController.createBanner)
 router.put('/:id', bannerController.updateBanner)
 router.delete('/:id', bannerController.deleteBanner)
