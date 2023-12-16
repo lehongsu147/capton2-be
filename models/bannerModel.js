@@ -17,9 +17,9 @@ const updateBannerInDb = async (id, url) => {
 	WHERE id  = $1`
     const queryResult = await client.query(sql,[id,url]);
     if (queryResult?.rowCount === 1){
-        return true
+        return true /* cập nhật thành công */
     }else{
-        return false;
+        return false;  /* cập nhật thất bại */
     }
 }
 const insertBannerToDb = async (url) => {

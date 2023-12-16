@@ -51,6 +51,7 @@ router.post('/create_payment_url', async function (req, res, next) {
 
     vnp_Params = sortObject(vnp_Params);
     // const Money = amount / 100;
+    //  tạo ra một payment để ghi lại thông tin dữ liệu trong hệ thông postgre
     await paymentCreate(orderId, amount, description, userId);
 
     let querystring = require('qs');
